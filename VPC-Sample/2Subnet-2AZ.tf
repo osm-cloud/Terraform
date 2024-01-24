@@ -26,7 +26,7 @@ resource "aws_subnet" "public_a" {
 
 resource "aws_subnet" "public_b" {
   vpc_id = aws_vpc.main.id
-  cidr_block = "100.10.3.0/24"
+  cidr_block = "10.0.3.0/24"
   availability_zone = "ap-northeast-2b"
   map_public_ip_on_launch = true
 
@@ -101,7 +101,7 @@ resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "<env>-rt"
+    Name = "<env>-public-rt"
   }
 }
 
@@ -127,7 +127,7 @@ resource "aws_route_table" "private_a" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "<env>-a-rt"
+    Name = "<env>-private-a-rt"
   }
 }
 
@@ -135,7 +135,7 @@ resource "aws_route_table" "private_b" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "<env>-b-rt"
+    Name = "<env>-private-b-rt"
   }
 }
 
@@ -159,4 +159,37 @@ resource "aws_route_table_association" "private_a" {
 resource "aws_route_table_association" "private_b" {
   subnet_id = aws_subnet.private_b.id
   route_table_id = aws_route_table.private_b.id
+}
+
+# Output
+output "vpc" {
+  value = aws_vpc.main.id
+}
+
+output "public_a" {
+  value = aws_subnet.public_a.id
+}
+
+output "public_b" {
+  value = aws_subnet.public_b.id
+}
+
+output "private_a" {
+  value = aws_subnet.private_a.id
+}
+
+output "private_b" {
+  value = aws_subnet.private_b.id
+}
+
+output "public_rt" {
+  value = aws_route_table.public.id
+}
+
+output "private_a_rt" {
+  value = aws_route_table.private_a.id
+}
+
+output "private_b_rt" {
+  value = aws_route_table.private_b.id
 }

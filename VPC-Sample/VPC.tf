@@ -8,3 +8,7 @@ resource "aws_vpc" "main" {
     Name = "<env>-vpc"
   }
 }
+
+output "vpc" {
+  value = aws_vpc.main.id
+}

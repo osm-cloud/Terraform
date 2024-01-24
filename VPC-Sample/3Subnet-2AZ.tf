@@ -15,7 +15,7 @@ resource "aws_vpc" "main" {
 #Public Subnet
 resource "aws_subnet" "public_a" {
   vpc_id = aws_vpc.main.id
-  cidr_block = "10.0.2.0/24"
+  cidr_block = "10.0.4.0/24"
   availability_zone = "ap-northeast-2a"
   map_public_ip_on_launch = true
 
@@ -26,7 +26,7 @@ resource "aws_subnet" "public_a" {
 
 resource "aws_subnet" "public_b" {
   vpc_id = aws_vpc.main.id
-  cidr_block = "10.0.3.0/24"
+  cidr_block = "10.0.5.0/24"
   availability_zone = "ap-northeast-2b"
   map_public_ip_on_launch = true
 
@@ -34,7 +34,8 @@ resource "aws_subnet" "public_b" {
     Name = "<env>-public-b"
   }
 }
- 
+
+
 #Private Subnet
 resource "aws_subnet" "private_a" {
   vpc_id = aws_vpc.main.id
@@ -55,6 +56,28 @@ resource "aws_subnet" "private_b" {
 
   tags = {
     Name = "<env>-private-b"
+  }
+}
+
+resource "aws_subnet" "protected_a" {
+  vpc_id = aws_vpc.main.id
+  cidr_block = "10.0.2.0/24"
+  availability_zone = "ap-northeast-2a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "<env>-protected-a"
+  }
+}
+
+resource "aws_subnet" "protected_b" {
+  vpc_id = aws_vpc.main.id
+  cidr_block = "10.0.3.0/24"
+  availability_zone = "ap-northeast-2b"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "<env>-protected-b"
   }
 }
 
@@ -88,17 +111,11 @@ resource "aws_eip" "nat_b" {
 resource "aws_nat_gateway" "private_a" {
   allocation_id                  = aws_eip.nat_a.id
   subnet_id                      = aws_subnet.public_a.id
-  tags = {
-    Name = "<env>-a-NGW"
-  }
 }
 
 resource "aws_nat_gateway" "private_b" {
   allocation_id                  = aws_eip.nat_b.id
   subnet_id                      = aws_subnet.public_b.id
-  tags = {
-    Name = "<env>-b-NGW"
-  }
 }
 
 #Route Table
@@ -167,111 +184,62 @@ resource "aws_route_table_association" "private_b" {
   route_table_id = aws_route_table.private_b.id
 }
 
-/* Security Group */
-resource "aws_security_group" "bastion" {
-  name = "<env>-ec2-sg"
+# Protected Table
+resource "aws_route_table" "protected_a" {
   vpc_id = aws_vpc.main.id
 
-  ingress {
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    from_port = "<Port>"
-    to_port = "<Port>"
-  }
-
-  ingress {
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    from_port = "<Port>"
-    to_port = "<Port>"
-  }
-
-  egress {
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    from_port = "<Port>"
-    to_port = "<Port>"
-  }
-
-  egress {
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    from_port = "<Port>"
-    to_port = "<Port>"
-  }
   tags = {
-    Name = "<env>-ec2-sg"
+    Name = "<env>-protected-a-rt"
   }
 }
 
-#IAM
-resource "aws_iam_role" "bastion" {
-  name = "<env>-ec2-role"
-  
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Sid = ""
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  managed_policy_arns = ["arn:aws:iam::aws:policy/AdministratorAccess"]
-}
-
-resource "aws_iam_instance_profile" "bastion" {
-  name = "<env>-profile-ec2"
-  role = aws_iam_role.bastion.name
-}
-
-#EC2
-#key_pair
-resource "tls_private_key" "rsa" {
-  algorithm = "RSA"
-  rsa_bits = 4096
-}
-
-resource "aws_key_pair" "keypair" {
-  key_name = "<env>"
-  public_key = tls_private_key.rsa.public_key_openssh
-}
-
-resource "local_file" "keypair" {
-  content = tls_private_key.rsa.private_key_pem
-  filename = "./<env>.pem"
-}
-
-  #Instance
-    #Public
-resource "aws_instance" "bastion" {
-  instance_type = "<type>"
-  subnet_id = aws_subnet.public_a.id
-  associate_public_ip_address = true
-  private_ip = "10.0.2.30"
-  vpc_security_group_ids = [aws_security_group.bastion.id]
-  iam_instance_profile = aws_iam_instance_profile.bastion.name
-  key_name = aws_key_pair.keypair.key_name
-  
-  ami = "ami-04ab8d3a67dfe6398"
+resource "aws_route_table" "protected_b" {
+  vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "<env>-bastion"
+    Name = "<env>-protected-b-rt"
   }
+}
 
-  user_data = <<-EOF
-    #!/bin/bash
-    yum update -y
-    yum install -y jq curl
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    unzip awscliv2.zip
-    sudo ./aws/install
-    ln -s /usr/local/bin/aws /usr/bin/
-    ln -s /usr/local/bin/aws_completer /usr/bin/
-  EOF
+resource "aws_route_table_association" "protected_a" {
+  subnet_id = aws_subnet.protected_a.id
+  route_table_id = aws_route_table.private_a.id
+}
+
+resource "aws_route_table_association" "protected_b" {
+  subnet_id = aws_subnet.protected_b.id
+  route_table_id = aws_route_table.protected_b.id
+}
+
+# Output
+output "vpc" {
+  value = aws_vpc.main.id
+}
+
+output "public_a" {
+  value = aws_subnet.public_a.id
+}
+
+output "public_b" {
+  value = aws_subnet.public_b.id
+}
+
+output "private_a" {
+  value = aws_subnet.private_a.id
+}
+
+output "private_b" {
+  value = aws_subnet.private_b.id
+}
+
+output "public_rt" {
+  value = aws_route_table.public.id
+}
+
+output "private_a_rt" {
+  value = aws_route_table.private_a.id
+}
+
+output "private_b_rt" {
+  value = aws_route_table.private_b.id
 }
